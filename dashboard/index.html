@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Token Launch Radar — which pre-token protocol is worth farming next</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>Token Launch Radar</h1>
+    <p class="sub">Which pre-token protocol is worth farming next — ranked by what its launch would be worth if its record stayed as it is. Snapshot 2026-11-14, 758 protocols, watchlist floor $50,000,000. A protocol here <b>records no token</b>; that is not proof it has none.</p>
+  </div>
+  <div class="topbtns"><button id="paletteBtn" type="button">Command palette <kbd>Ctrl K</kbd></button></div>
+</header>
+
+<section id="kpis" class="kpis" aria-label="Key numbers"></section>
+<p id="integrity" class="integrity"></p>
+
+<section class="panel">
+  <h2>Where all 758 protocols go</h2>
+  <p class="note">Every protocol in the snapshot sits in exactly one group. The board is the pre-token protocols the radar ranks; the rest are accounted for, not dropped.</p>
+  <div id="accounting" class="acct"></div>
+  <div id="acctLegend" class="legend"></div>
+</section>
+
+<section class="panel">
+  <h2>Out-of-sample check on the fixed model — the honest numbers</h2>
+  <p class="note" id="evidenceMethod"></p>
+  <div id="evidenceKpis" class="kpis small"></div>
+  <div class="twocol">
+    <div>
+      <h3>Miss by TVL band</h3>
+      <table class="mini"><thead><tr><th>Band</th><th>n</th><th>Typical miss</th><th>Within ×3</th><th>Median log error</th></tr></thead><tbody id="bandBody"></tbody></table>
+    </div>
+    <div>
+      <h3>Miss by category (worst first)</h3>
+      <table class="mini"><thead><tr><th>Category</th><th>n</th><th>Typical miss</th><th>Within ×3</th></tr></thead><tbody id="catBody"></tbody></table>
+    </div>
+  </div>
+  <p class="note" id="evidenceHonest"></p>
+</section>
+
+<section class="panel">
+  <h2>How a row is priced — the model card</h2>
+  <p class="note">implied = <b>1.2845 × TVL<sup>0.85</sup> × growth × age × odds</b>. Weights are fixed and locked: the scale 1.2845 and the exponent 0.85 never move. growth = 1 + 7-day change (clamped to ±30%, no report → 1.00). age = (1 + years tracked)^0.22; years from listed_at to the snapshot date, or the pool median (1.15y) when unlisted. odds = <b>0.55 flat</b> — the snapshot-wide share of protocols recording a token symbol (416 of 758 = 54.9%, rounded to 0.55), the same for every row, because category cohorts are too thin for an honest per-category rate.</p>
+  <div class="twocol">
+    <div>
+      <h3>Model sandbox — inputs move, weights do not</h3>
+      <p class="note">Change a protocol's inputs and watch the fixed formula reprice it. The weights above are shown, not editable.</p>
+      <div class="sandbox">
+        <label>TVL <output id="sbTvlOut"></output><input id="sbTvl" type="range" min="6.7" max="9.7" step="0.01" value="8.4"></label>
+        <label>7-day change <output id="sbGrowOut"></output><input id="sbGrow" type="range" min="-30" max="30" step="0.5" value="0"></label>
+        <label>Years tracked <output id="sbAgeOut"></output><input id="sbAge" type="range" min="0" max="5" step="0.1" value="1.5"></label>
+        <label>Token odds (what-if) <output id="sbOddsOut"></output><input id="sbOdds" type="range" min="0.05" max="0.95" step="0.01" value="0.55"></label>
+        <p class="sbout" id="sbOut"></p>
+      </div>
+    </div>
+    <div>
+      <h3>Verdict economics</h3>
+      <p class="note">A launch is assumed to pay a share of its implied value to farmers, split among 10,000 farmers. gross = implied × drop-share ÷ 10,000 × (horizon ÷ 180, capped at 365 days). net = gross − farm cost. <b>Farm</b> if net ≥ $20, <b>Marginal</b> if $0–$20, <b>Skip</b> if below $0. Move the sliders and every verdict, net and net/hour on the board updates.</p>
+      <label>Drop share <output id="dropOut"></output><input id="dropShare" type="range" min="0.005" max="0.05" step="0.005" value="0.02"></label>
+      <label>Horizon (days) <output id="horOut"></output><input id="horizon" type="range" min="30" max="365" step="15" value="180"></label>
+      <p class="note" id="econLine"></p>
+    </div>
+  </div>
+</section>
+
+<div class="tabs" role="tablist">
+  <button id="tabPre" type="button" class="tab on" role="tab">Pre-token board (198)</button>
+  <button id="tabLive" type="button" class="tab" role="tab">Already trading (128) — the reality check</button>
+</div>
+
+<section id="preView">
+  <div id="pinnedWrap" class="pinned" hidden>
+    <h3>Pinned comparisons <span class="note">(up to 4 — tick a row's pin box)</span></h3>
+    <table class="mini"><thead><tr><th>Protocol</th><th>TVL</th><th>7D</th><th>Age</th><th>Odds</th><th>Implied</th><th>Verdict</th><th>Farm cost</th></tr></thead><tbody id="pinnedBody"></tbody></table>
+  </div>
+  <div class="filters">
+    <div class="vtab" id="verdictTabs"></div>
+    <div class="vtab" id="tierTabs"></div>
+    <div class="frow">
+      <input id="search" type="search" placeholder="Search name or slug…" aria-label="Search protocols">
+      <select id="catSel" aria-label="Filter by category"><option value="">All categories</option></select>
+      <select id="chainSel" aria-label="Filter by chain"><option value="">All chains</option></select>
+      <button id="resetBtn" type="button">Reset</button>
+      <button id="csvBtn" type="button">Export CSV</button>
+      <button id="jsonBtn" type="button">Export JSON</button>
+    </div>
+    <p class="note" id="countLine"></p>
+  </div>
+  <table class="board">
+    <thead><tr>
+      <th>Pin</th><th data-sort="rank">Rank ↕</th><th>Protocol</th>
+      <th data-sort="tvl">TVL ↕</th><th>7D</th><th>Age</th><th>Odds</th>
+      <th data-sort="implied">If launched ↕</th><th data-sort="net">Verdict / net ↕</th><th>Farm plan</th>
+    </tr></thead>
+    <tbody id="boardBody"></tbody>
+  </table>
+  <div id="detail"></div>
+</section>
+
+<section id="liveView" hidden>
+  <p class="note">The same fixed formula, run on protocols that already record a token with a positive market cap. This is the reality check behind the evidence section: compare each protocol's recorded mcap with what the model would have implied from its TVL, growth and age.</p>
+  <table class="board">
+    <thead><tr><th>Protocol</th><th>Category</th><th>TVL</th><th>Recorded mcap</th><th>Model implied</th><th>Miss factor</th></tr></thead>
+    <tbody id="liveBody"></tbody>
+  </table>
+</section>
+
+<div id="palette" class="palette" hidden>
+  <div class="palbox">
+    <input id="palInput" type="text" placeholder="Type a protocol name, or an action: export csv, export json, reset, pre-token, trading…" aria-label="Command palette">
+    <ul id="palList"></ul>
+    <p class="note">↑↓ to move, Enter to open, Esc to close. Ctrl+K anywhere reopens it.</p>
+  </div>
+</div>
+
+<footer>
+  <p class="note">Built from the sealed snapshot only — no hardcoded protocol names, no fitting at runtime, no network. Board = 198 rows: the 40 watchlist protocols plus the 158 highest-TVL other eligible pre-token protocols. Farm steps are generic templates filled from each protocol's own category, chain and deposit; costs are gas estimates, not quotes. Implied values are this entry's claim, not a prediction that a token will launch.</p>
+</footer>
+<script src="../data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
